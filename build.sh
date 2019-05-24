@@ -7,27 +7,10 @@ if [ -z "$NETCDF" ]; then
     exit 1
 fi
 
-# Define directory names
-ROOT=`pwd`
-SRC=$ROOT/source
-BIN=$ROOT/bin
-
-# Make binary directory
-rm -rf $BIN
-mkdir $BIN
-cd $BIN
-
-# Copy source files
-cp $SRC/*.f90    .
-cp $SRC/makefile .
-
 # Compile SPEEDY and delete source files
-make -s clean
 echo 'Compiling SPEEDY'
 if [ "$1" = "--profile" ]; then
-    make -s profile || { echo "Compilation failed"; exit 1; }
+    FoBiS.py build -mode profile
 else
-    make -s || { echo "Compilation failed"; exit 1; }
+    FoBiS.py build
 fi
-
-rm *.f90 *.o makefile *.mod

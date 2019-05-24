@@ -1,7 +1,20 @@
+[modes]
+modes = default profile
+
+[common-variables]
+$FFLAGS   = -c -fdefault-real-8 -fconvert=swap -Wall
+
 [default]
+template  = template-speedy
+cflags    = $FFLAGS -Ofast
+
+[profile]
+template  = template-speedy
+cflags    = $FFLAGS
+
+[template-speedy]
 colors    = True
 compiler  = gnu
-cflags    = -c -fdefault-real-8 -fconvert=swap -Wall -Ofast
 lflags    = -lnetcdff
 include   = /usr/include
 

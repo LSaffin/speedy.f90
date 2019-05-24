@@ -1,0 +1,14 @@
+[default]
+colors    = True
+compiler  = gnu
+cflags    = -c -fdefault-real-8 -fconvert=swap -Wall -Ofast
+lflags    = -lnetcdff
+include   = /usr/include
+
+src       = ./source
+target    = ./source/speedy.f90
+
+build_dir = ./bin
+mod_dir   = ./.mod
+obj_dir   = ./.obj
+output    = speedy

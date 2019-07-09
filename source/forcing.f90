@@ -2,6 +2,8 @@
 !  date: 01/05/2019
 !  For setting all time-dependent forcing fields.
 module forcing
+    use types, only: p
+
     implicit none
 
     private
@@ -14,7 +16,7 @@ contains
         use dynamical_constants, only: refrh1
         use params
         use horizontal_diffusion, only: tcorh, qcorh
-        use physical_constants, only: rd
+        use physical_constants, only: rgas
         use boundaries, only: phis0, alb0
         use surface_fluxes, only: set_orog_land_sfc_drag
         use date, only: model_datetime, tyear
@@ -28,10 +30,10 @@ contains
 
         integer, intent(in) :: imode !! Mode -> 0 = initialization step, 1 = daily update
 
-        real, dimension(ix, il) :: corh, tsfc, tref, psfc, qsfc, qref
-        real :: gamlat(il)
+        real(p), dimension(ix, il) :: corh, tsfc, tref, psfc, qsfc, qref
+        real(p) :: gamlat(il)
 
-        real :: del_co2, pexp
+        real(p) :: del_co2, pexp
         integer :: i, j, iyear_ref
 
         ! time variables for interpolation are set by newdate
@@ -81,7 +83,7 @@ contains
 
         ! 4. humidity correction term for horizontal diffusion
         do j = 1, il
-            pexp = 1./(rd * gamlat(j))
+            pexp = 1./(rgas * gamlat(j))
             do i = 1, ix
                 tsfc(i,j) = fmask_l(i,j) * stl_am(i,j) + fmask_s(i,j) * sst_am(i,j)
                 tref(i,j) = tsfc(i,j) + corh(i,j)
@@ -89,8 +91,8 @@ contains
             end do
         end do
 
-        qref = get_qsat(tref, psfc/psfc, -1.0)
-        qsfc = get_qsat(tsfc, psfc, 1.0)
+        qref = get_qsat(tref, psfc/psfc, -1.0_p)
+        qsfc = get_qsat(tsfc, psfc, 1.0_p)
 
         corh = refrh1 * (qref - qsfc)
 
@@ -103,7 +105,7 @@ contains
         use params
         use physical_constants, only: grav
 
-        real, intent(inout) :: gamlat(il) !! The reference lapse rate
+        real(p), intent(inout) :: gamlat(il) !! The reference lapse rate
 
         integer :: j
 

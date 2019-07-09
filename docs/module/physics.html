@@ -130,7 +130,7 @@
      <li><i class="fa fa-list-ol"></i>
        <a data-toggle="tooltip"
     data-placement="bottom" data-html="true"
-    title=" 3.6% of total for modules and submodules.">123 statements</a>
+    title=" 3.8% of total for modules and submodules.">131 statements</a>
      </li> 
      
      
@@ -524,6 +524,15 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
   <div class="panel-body">
        
     
+
+
+
+
+
+
+
+<p>Compute physical parametrization tendencies for u, v, t, q and add them
+  to the dynamical grid-point tendencies</p>
     
     <h4>Arguments</h4>
     
@@ -545,11 +554,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx,kx)</td><td>::</td>
-  <td><strong>vor</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>vor</strong>(mx,nx,kx)</td><td><p>Vorticity</p></td>
   
 </tr>
 
@@ -560,11 +569,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx,kx)</td><td>::</td>
-  <td><strong>div</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>div</strong>(mx,nx,kx)</td><td><p>Divergence</p></td>
   
 </tr>
 
@@ -575,11 +584,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx,kx)</td><td>::</td>
-  <td><strong>t</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>t</strong>(mx,nx,kx)</td><td><p>Temperature</p></td>
   
 </tr>
 
@@ -590,11 +599,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx,kx)</td><td>::</td>
-  <td><strong>q</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>q</strong>(mx,nx,kx)</td><td><p>Specific Humidity</p></td>
   
 </tr>
 
@@ -605,11 +614,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx,kx)</td><td>::</td>
-  <td><strong>phi</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>phi</strong>(mx,nx,kx)</td><td><p>Geopotential</p></td>
   
 </tr>
 
@@ -620,11 +629,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>complex,</td>
-  <td>intent(in),</td>
+  <td>intent(in)</td>
   <td></td>
   
-  <td>dimension(mx,nx)</td><td>::</td>
-  <td><strong>psl</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>psl</strong>(mx,nx)</td><td><p>ln(Surface pressure)</p></td>
   
 </tr>
 
@@ -635,11 +644,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>real,</td>
-  <td>intent(inout),</td>
+  <td>intent(inout)</td>
   <td></td>
   
-  <td>dimension(ix,il,kx)</td><td>::</td>
-  <td><strong>utend</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>utend</strong>(ix,il,kx)</td><td><p>Zonal velocity tendency</p></td>
   
 </tr>
 
@@ -650,11 +659,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>real,</td>
-  <td>intent(inout),</td>
+  <td>intent(inout)</td>
   <td></td>
   
-  <td>dimension(ix,il,kx)</td><td>::</td>
-  <td><strong>vtend</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>vtend</strong>(ix,il,kx)</td><td><p>Meridional velocity tendency</p></td>
   
 </tr>
 
@@ -665,11 +674,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>real,</td>
-  <td>intent(inout),</td>
+  <td>intent(inout)</td>
   <td></td>
   
-  <td>dimension(ix,il,kx)</td><td>::</td>
-  <td><strong>ttend</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>ttend</strong>(ix,il,kx)</td><td><p>Temperature tendency</p></td>
   
 </tr>
 
@@ -680,11 +689,11 @@ public subroutine <a href='../proc/get_physical_tendencies.html'>get_physical_te
 <tr>
   
   <td><span class="anchor" ></span>real,</td>
-  <td>intent(inout),</td>
+  <td>intent(inout)</td>
   <td></td>
   
-  <td>dimension(ix,il,kx)</td><td>::</td>
-  <td><strong>qtend</strong></td><td></td>
+  <td></td><td>::</td>
+  <td><strong>qtend</strong>(ix,il,kx)</td><td><p>Specific humidity tendency</p></td>
   
 </tr>
 

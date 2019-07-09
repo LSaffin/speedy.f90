@@ -1,4 +1,5 @@
 module physics
+    use types, only: p
     use params
 
     implicit none
@@ -37,18 +38,8 @@ contains
         wvi(kx,2) = (log(0.99)-sigl(kx))*wvi(kx-1,1)
     end
 
-    ! Compute physical parametrization tendencies for u, v, t, q and add them to
-    ! dynamical grid-point tendencies
-    ! Input-only  arguments:   vor   : vorticity (sp)
-    !                          div   : divergence (sp)
-    !                          t     : temperature (sp)
-    !                          q     : specific humidity (sp)
-    !                          phi   : geopotential (sp)
-    !                          psl   : log of sfc pressure (sp)
-    ! Input-output arguments:  utend  : u-wind tendency (gp)
-    !                          vtend  : v-wind tendency (gp)
-    !                          ttend  : temp. tendency (gp)
-    !                          qtend  : spec. hum. tendency (gp)
+    !> Compute physical parametrization tendencies for u, v, t, q and add them
+    !  to the dynamical grid-point tendencies
     subroutine get_physical_tendencies(vor, div, t, q, phi, psl, utend, vtend, ttend, qtend)
         use auxiliaries, only: precnv, precls, cbmf, tsr, ssrd, ssr, slrd, slr, olr, slru, ustr, &
             & vstr, shf, evap, hfluxn
@@ -58,27 +49,37 @@ contains
         use land_model, only: fmask_l
         use sea_model, only: sst_am, ssti_om, sea_coupling_flag
         use sppt, only: mu, gen_sppt
-        use precipitation, only: convective_precipitation, large_scale_precipitation
+        use convection, only: get_convection_tendencies
+        use large_scale_condensation, only: get_large_scale_condensation_tendencies
         use shortwave_radiation, only: get_shortwave_rad_fluxes, clouds, compute_shortwave
-        use longwave_radiation, only: get_longwave_rad_fluxes
+        use longwave_radiation, only: &
+                get_downward_longwave_rad_fluxes, get_upward_longwave_rad_fluxes
         use surface_fluxes, only: get_surface_fluxes
         use vertical_diffusion, only: get_vertical_diffusion_tend
         use humidity, only: spec_hum_to_rel_hum
         use spectral, only: spec_to_grid, uvspec
 
-        complex, dimension(mx,nx,kx), intent(in) :: vor, div, t, q, phi
-        complex, dimension(mx,nx), intent(in) :: psl
-        real, dimension(ix,il,kx), intent(inout) :: utend, vtend, ttend, qtend
+        complex(p), intent(in) :: vor(mx,nx,kx) !! Vorticity
+        complex(p), intent(in) :: div(mx,nx,kx) !! Divergence
+        complex(p), intent(in) :: t(mx,nx,kx)   !! Temperature
+        complex(p), intent(in) :: q(mx,nx,kx)   !! Specific Humidity
+        complex(p), intent(in) :: phi(mx,nx,kx) !! Geopotential
+        complex(p), intent(in) :: psl(mx,nx)    !! ln(Surface pressure)
 
-        complex, dimension(mx,nx) :: ucos, vcos
-        real, dimension(ix,il) :: pslg, rps, gse
-        real, dimension(ix,il,kx) :: ug, vg, tg, qg, phig, utend_dyn, vtend_dyn, ttend_dyn, qtend_dyn
-        real, dimension(ix,il,kx) :: se, rh, qsat
-        real, dimension(ix,il) :: psg, ts, tskin, u0, v0, t0, cloudc, clstr, cltop, prtop
-        real, dimension(ix,il,kx) :: tt_cnv, qt_cnv, tt_lsc, qt_lsc, tt_rsw, tt_rlw, ut_pbl, vt_pbl,&
+        real(p), intent(inout) :: utend(ix,il,kx) !! Zonal velocity tendency
+        real(p), intent(inout) :: vtend(ix,il,kx) !! Meridional velocity tendency
+        real(p), intent(inout) :: ttend(ix,il,kx) !! Temperature tendency
+        real(p), intent(inout) :: qtend(ix,il,kx) !! Specific humidity tendency
+
+        complex(p), dimension(mx,nx) :: ucos, vcos
+        real(p), dimension(ix,il) :: pslg, rps, gse
+        real(p), dimension(ix,il,kx) :: ug, vg, tg, qg, phig, utend_dyn, vtend_dyn, ttend_dyn, qtend_dyn
+        real(p), dimension(ix,il,kx) :: se, rh, qsat
+        real(p), dimension(ix,il) :: psg, ts, tskin, u0, v0, t0, cloudc, clstr, cltop, prtop
+        real(p), dimension(ix,il,kx) :: tt_cnv, qt_cnv, tt_lsc, qt_lsc, tt_rsw, tt_rlw, ut_pbl, vt_pbl,&
             & tt_pbl, qt_pbl
         integer :: iptop(ix,il), icltop(ix,il,2), icnv(ix,il), i, j, k
-        real :: sppt(ix,il,kx)
+        real(p) :: sppt_pattern(ix,il,kx)
 
         ! Keep a copy of the original (dynamics only) tendencies
         utend_dyn = utend
@@ -121,7 +122,7 @@ contains
         ! =========================================================================
 
         ! Deep convection
-        call convective_precipitation(psg, se, qg, qsat, iptop, cbmf, precnv, tt_cnv, qt_cnv)
+        call get_convection_tendencies(psg, se, qg, qsat, iptop, cbmf, precnv, tt_cnv, qt_cnv)
 
         do k = 2, kx
             tt_cnv(:,:,k) = tt_cnv(:,:,k)*rps*grdscp(k)
@@ -131,7 +132,7 @@ contains
         icnv = kx - iptop
 
         ! Large-scale condensation
-        call large_scale_precipitation(psg, qg, qsat, iptop, precls, tt_lsc, qt_lsc)
+        call get_large_scale_condensation_tendencies(psg, qg, qsat, iptop, precls, tt_lsc, qt_lsc)
 
         ttend = ttend + tt_cnv + tt_lsc
         qtend = qtend + qt_cnv + qt_lsc
@@ -162,21 +163,21 @@ contains
         end if
 
         ! Compute downward longwave fluxes
-        call get_longwave_rad_fluxes(-1, tg, ts, slrd, slru(:,:,3), slr, olr, tt_rlw)
+        call get_downward_longwave_rad_fluxes(tg, slrd, tt_rlw)
 
         ! Compute surface fluxes and land skin temperature
         call get_surface_fluxes(psg, ug, vg, tg, qg, rh, phig, phis0, fmask_l, sst_am, &
-    		& ssrd, slrd, ustr, vstr, shf, evap, slru, hfluxn, ts, tskin, u0, v0, t0, .true.)
+                & ssrd, slrd, ustr, vstr, shf, evap, slru, hfluxn, ts, tskin, u0, v0, t0, .true.)
 
         ! Recompute sea fluxes in case of anomaly coupling
         if (sea_coupling_flag > 0) then
            call get_surface_fluxes(psg, ug, vg, tg, qg, rh, phig, phis0, fmask_l, ssti_om, &
-    	   	& ssrd, slrd, ustr, vstr, shf, evap, slru, hfluxn, ts, tskin, u0, v0, t0, .false.)
+                   & ssrd, slrd, ustr, vstr, shf, evap, slru, hfluxn, ts, tskin, u0, v0, t0, .false.)
         end if
 
         ! Compute upward longwave fluxes, convert them to tendencies and add
-    	! shortwave tendencies
-        call get_longwave_rad_fluxes(1, tg, ts, slrd, slru(:,:,3), slr, olr, tt_rlw)
+        ! shortwave tendencies
+        call get_upward_longwave_rad_fluxes(tg, ts, slrd, slru(:,:,3), slr, olr, tt_rlw)
 
         do k = 1, kx
             tt_rlw(:,:,k) = tt_rlw(:,:,k)*rps*grdscp(k)
@@ -205,18 +206,18 @@ contains
 
         ! Add SPPT noise
         if (sppt_on) then
-            sppt = gen_sppt()
+            sppt_pattern = gen_sppt()
 
             ! The physical contribution to the tendency is *tend - *tend_dyn, where * is u, v, t, q
             do k = 1,kx
-                utend(:,:,k) = (1 + sppt(:,:,k)*mu(k))*(utend(:,:,k) - utend_dyn(:,:,k)) &
-    				& + utend_dyn(:,:,k)
-                vtend(:,:,k) = (1 + sppt(:,:,k)*mu(k))*(vtend(:,:,k) - vtend_dyn(:,:,k)) &
-    				& + vtend_dyn(:,:,k)
-                ttend(:,:,k) = (1 + sppt(:,:,k)*mu(k))*(ttend(:,:,k) - ttend_dyn(:,:,k)) &
-    				& + ttend_dyn(:,:,k)
-                qtend(:,:,k) = (1 + sppt(:,:,k)*mu(k))*(qtend(:,:,k) - qtend_dyn(:,:,k)) &
-    				& + qtend_dyn(:,:,k)
+                utend(:,:,k) = (1 + sppt_pattern(:,:,k)*mu(k))*(utend(:,:,k) - utend_dyn(:,:,k)) &
+                        & + utend_dyn(:,:,k)
+                vtend(:,:,k) = (1 + sppt_pattern(:,:,k)*mu(k))*(vtend(:,:,k) - vtend_dyn(:,:,k)) &
+                        & + vtend_dyn(:,:,k)
+                ttend(:,:,k) = (1 + sppt_pattern(:,:,k)*mu(k))*(ttend(:,:,k) - ttend_dyn(:,:,k)) &
+                        & + ttend_dyn(:,:,k)
+                qtend(:,:,k) = (1 + sppt_pattern(:,:,k)*mu(k))*(qtend(:,:,k) - qtend_dyn(:,:,k)) &
+                        & + qtend_dyn(:,:,k)
             end do
         end if
     end

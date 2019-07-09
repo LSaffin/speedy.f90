@@ -1,4 +1,6 @@
+!> Parametrization of surface fluxes
 module surface_fluxes
+    use types, only: p
     use params
 
     implicit none
@@ -7,88 +9,79 @@ module surface_fluxes
     public get_surface_fluxes, set_orog_land_sfc_drag
 
     !  Constants for surface fluxes
-    real :: fwind0 = 0.95 ! Ratio of near-sfc wind to lowest-level wind
+    real(p) :: fwind0 = 0.95 !! Ratio of near-sfc wind to lowest-level wind
 
-    ! Weight for near-sfc temperature extrapolation (0-1) :
-    ! 1 : linear extrapolation from two lowest levels
-    ! 0 : constant potential temperature ( = lowest level)
-    real :: ftemp0 = 1.0
+    !> Weight for near-sfc temperature extrapolation (0-1) :
+    !  1 : linear extrapolation from two lowest levels
+    !  0 : constant potential temperature ( = lowest level)
+    real(p) :: ftemp0 = 1.0
 
-    ! Weight for near-sfc specific humidity extrapolation (0-1) :
-    ! 1 : extrap. with constant relative hum. ( = lowest level)
-    ! 0 : constant specific hum. ( = lowest level)
-    real :: fhum0 = 0.0
+    !> Weight for near-sfc specific humidity extrapolation (0-1) :
+    !  1 : extrap. with constant relative hum. ( = lowest level)
+    !  0 : constant specific hum. ( = lowest level)
+    real(p) :: fhum0 = 0.0
 
-    real :: cdl = 2.4e-3   ! Drag coefficient for momentum over land
-    real :: cds = 1.0e-3   ! Drag coefficient for momentum over sea
-    real :: chl = 1.2e-3   ! Heat exchange coefficient over land
-    real :: chs = 0.9e-3   ! Heat exchange coefficient over sea
-    real :: vgust = 5.0    ! Wind speed for sub-grid-scale gusts
-    real :: ctday = 1.0e-2 ! Daily-cycle correction (dTskin/dSSRad)
-    real :: dtheta = 3.0   ! Potential temp. gradient for stability correction
-    real :: fstab = 0.67   ! Amplitude of stability correction (fraction)
-    real :: hdrag = 2000.0 ! Height scale for orographic correction
-    real :: clambda = 7.0  ! Heat conductivity in skin-to-root soil layer
-    real :: clambsn = 7.0  ! Heat conductivity in soil for snow cover = 1
+    real(p) :: cdl = 2.4e-3   !! Drag coefficient for momentum over land
+    real(p) :: cds = 1.0e-3   !! Drag coefficient for momentum over sea
+    real(p) :: chl = 1.2e-3   !! Heat exchange coefficient over land
+    real(p) :: chs = 0.9e-3   !! Heat exchange coefficient over sea
+    real(p) :: vgust = 5.0    !! Wind speed for sub-grid-scale gusts
+    real(p) :: ctday = 1.0e-2 !! Daily-cycle correction (dTskin/dSSRad)
+    real(p) :: dtheta = 3.0   !! Potential temp. gradient for stability correction
+    real(p) :: fstab = 0.67   !! Amplitude of stability correction (fraction)
+    real(p) :: hdrag = 2000.0 !! Height scale for orographic correction
+    real(p) :: clambda = 7.0  !! Heat conductivity in skin-to-root soil layer
+    real(p) :: clambsn = 7.0  !! Heat conductivity in soil for snow cover = 1
 
 
-    real :: forog(ix,il) ! Time-invariant fields (initial. in SFLSET)
+    real(p) :: forog(ix,il) ! Time-invariant fields (initial. in SFLSET)
 
 contains
-    ! Compute surface fluxes of momentum, energy and moisture, and define surface
-    ! skin temperature from energy balance
-    ! Input:   PSA    = norm. surface pressure [p/p0]   (2-dim)
-    !          UA     = u-wind                          (3-dim)
-    !          VA     = v-wind                          (3-dim)
-    !          TA     = temperature                     (3-dim)
-    !          QA     = specific humidity [g/kg]        (3-dim)
-    !          RH     = relative humidity [0-1]         (3-dim)
-    !          PHI    = geopotential                    (3-dim)
-    !          PHI0   = surface geopotential            (2-dim)
-    !          FMASK  = fractional land-sea mask        (2-dim)
-    !          TSEA   =  sea-surface temperature        (2-dim)
-    !          SSRD   = sfc sw radiation (downw. flux)  (2-dim)
-    !          SLRD   = sfc lw radiation (downw. flux)  (2-dim)
-    !          LFLUXLAND   = Logical related ti flux-correction
-    ! Output:  USTR   = u stress                        (2-dim)
-    !          VSTR   = v stress                        (2-dim)
-    !          SHF    = sensible heat flux              (2-dim)
-    !          EVAP   = evaporation [g/(m^2 s)]         (2-dim)
-    !          SLRU   = sfc lw radiation (upward flux)  (2-dim)
-    !          HFLUXN = net heat flux into land/sea     (2-dim)
-    !          TSFC   = surface temperature (clim.)     (2-dim)
-    !          TSKIN  = skin surface temperature        (2-dim)
-    !          U0     = near-surface u-wind             (2-dim)
-    !          V0     = near-surface v-wind             (2-dim)
-    !          T0     = near-surface air temperature    (2-dim)
-    !          Q0     = near-surface sp. humidity [g/kg](2-dim)
+    !> Compute surface fluxes of momentum, energy and moisture, and define surface
+    !  skin temperature from energy balance
     subroutine get_surface_fluxes(psa, ua, va, ta, qa, rh, phi, phi0, fmask, tsea, ssrd, slrd, &
             & ustr, vstr, shf, evap, slru, hfluxn, tsfc, tskin, u0, v0, t0, lfluxland)
-        use physical_constants, only: p0, rd, cp, alhc, sbc, sigl, wvi
+        use physical_constants, only: p0, rgas, cp, alhc, sbc, sigl, wvi
         use geometry, only: coa
         use mod_radcon, only: emisfc, alb_l, alb_s, snowc
         use land_model, only: stl_am, soilw_am
         use humidity, only: get_qsat, rel_hum_to_spec_hum
 
-        real, dimension(ix,il,kx), intent(in) :: ua, va, ta, qa, rh, phi
-        real, dimension(ix,il), intent(in) :: phi0, fmask, tsea, ssrd, slrd
-
-        real, dimension(ix,il,3), intent(inout) :: ustr, vstr, shf, evap, slru
-        real, intent(inout) :: hfluxn(ix,il,2)
-        real, dimension(ix,il), intent(inout) :: tsfc, tskin, u0, v0, t0
+        real(p), intent(in) :: psa(ix,il)    !! Normalised surface pressure
+        real(p), intent(in) :: ua(ix,il,kx)  !! u-wind
+        real(p), intent(in) :: va(ix,il,kx)  !! v-wind
+        real(p), intent(in) :: ta(ix,il,kx)  !! Temperature
+        real(p), intent(in) :: qa(ix,il,kx)  !! Specific humidity [g/kg]
+        real(p), intent(in) :: rh(ix,il,kx)  !! Relative humidity
+        real(p), intent(in) :: phi(ix,il,kx) !! Geopotential
+        real(p), intent(in) :: phi0(ix,il)   !! Surface geopotential
+        real(p), intent(in) :: fmask(ix,il)  !! Fractional land-sea mask
+        real(p), intent(in) :: tsea(ix,il)   !! Sea-surface temperature
+        real(p), intent(in) :: ssrd(ix,il)   !! Downward flux of short-wave radiation at the surface
+        real(p), intent(in) :: slrd(ix,il)   !! Downward flux of long-wave radiation at the surface
+        logical, intent(in) :: lfluxland
+        real(p), intent(out) :: ustr(ix,il,3) !! u-stress
+        real(p), intent(out) :: vstr(ix,il,3) !! v-stress
+        real(p), intent(out) :: shf(ix,il,3)  !! Sensible heat flux
+        real(p), intent(out) :: evap(ix,il,3) !! Evaporation
+        real(p), intent(out) :: slru(ix,il,3) !! Upward flux of long-wave radiation at the surface
+        real(p), intent(out) :: hfluxn(ix,il,2) !! Net downward heat flux
+        real(p), intent(out) :: tsfc(ix,il)   !! Surface temperature
+        real(p), intent(out) :: tskin(ix,il)  !! Skin surface temperature
+        real(p), intent(out) :: u0(ix,il) !! Near-surface u-wind
+        real(p), intent(out) :: v0(ix,il) !! Near-surface v-wind
+        real(p), intent(out) :: t0(ix,il) !! Near-surface temperature
 
         integer :: i, j, ks, nl1
-        real, dimension(ix,il,2), save :: t1, q1
-        real, dimension(ix,il,2) :: t2, qsat0
-        real, save :: denvvs(ix,il,0:2)
-        real :: dslr(ix,il), dtskin(ix,il), clamb(ix,il), astab, cdldv, cdsdv(ix,il), chlcp
-        real :: dt1, dthl, dths, esbc, ghum0, gtemp0
-        real :: rcp, rdth, tsk3(ix,il)
+        real(p), dimension(ix,il,2), save :: t1, q1
+        real(p), dimension(ix,il,2) :: t2, qsat0
+        real(p), save :: denvvs(ix,il,0:2)
+        real(p) :: dslr(ix,il), dtskin(ix,il), clamb(ix,il), astab, cdldv, cdsdv(ix,il), chlcp
+        real(p) :: dt1, dthl, dths, esbc, ghum0, gtemp0
+        real(p) :: rcp, rdth, tsk3(ix,il)
 
         logical lscasym, lskineb
-        logical lfluxland
 
-        real :: psa(ix,il)
 
         lscasym = .true.   ! true : use an asymmetric stability coefficient
         lskineb = .true.   ! true : redefine skin temp. from energy balance
@@ -120,7 +113,7 @@ contains
 
                     ! Extrapolated temperature using actual lapse rate (1:land, 2:sea)
                     t1(i,j,1) = ta(i,j,kx) + dt1
-                    t1(i,j,2) = t1(i,j,1) - phi0(i,j)*dt1/(rd*288.0*sigl(kx))
+                    t1(i,j,2) = t1(i,j,1) - phi0(i,j)*dt1/(rgas*288.0*sigl(kx))
 
                     ! Extrapolated temperature using dry-adiab. lapse rate (1:land, 2:sea)
                     t2(i,j,2) = ta(i,j,kx) + rcp*phi(i,j,kx)
@@ -144,7 +137,7 @@ contains
             end do
 
             ! 1.3 Density * wind speed (including gustiness factor)
-            denvvs(:,:,0) = (p0*psa/(rd*t0))*sqrt(u0**2.0 + v0**2.0 + vgust**2.0)
+            denvvs(:,:,0) = (p0*psa/(rgas*t0))*sqrt(u0**2.0 + v0**2.0 + vgust**2.0)
 
             ! 2. Compute land-sfc. fluxes using prescribed skin temperature
 
@@ -186,14 +179,14 @@ contains
 
             ! 2.5 Evaporation
             if (fhum0 > 0.0) then
-                call rel_hum_to_spec_hum(t1, psa, 1.0, rh(:,:,kx), q1, qsat0(:,:,1))
+                call rel_hum_to_spec_hum(t1, psa, 1.0_p, rh(:,:,kx), q1, qsat0(:,:,1))
 
                 q1(:,:,1) = fhum0*q1(:,:,1) + ghum0*qa(:,:,kx)
             else
                 q1(:,:,1) = qa(:,:,kx)
             end if
 
-            qsat0(:,:,1) = get_qsat(tskin, psa, 1.0)
+            qsat0(:,:,1) = get_qsat(tskin, psa, 1.0_p)
             evap(:,:,1) = chl*denvvs(:,:,1)*max(0.0, soilw_am*qsat0(:,:,1) - q1(:,:,1))
 
             ! 3. Compute land-surface energy balance;
@@ -214,7 +207,7 @@ contains
                 dtskin = tskin + 1.0
 
                 ! Compute d(Evap) for a 1-degree increment of Tskin
-                qsat0(:,:,2) = get_qsat(dtskin, psa, 1.0)
+                qsat0(:,:,2) = get_qsat(dtskin, psa, 1.0_p)
 
                 do i = 1, ix
                     do j = 1, il
@@ -253,7 +246,7 @@ contains
             end do
 
             if (fhum0 > 0.0) then
-                call rel_hum_to_spec_hum(t1(:,:,2), psa, 1.0, rh(:,:,kx), q1(:,:,2), qsat0(:,:,2))
+                call rel_hum_to_spec_hum(t1(:,:,2), psa, 1.0_p, rh(:,:,kx), q1(:,:,2), qsat0(:,:,2))
 
                 q1(:,:,2) = fhum0*q1(:,:,2) + ghum0*qa(:,:,kx)
             else
@@ -276,7 +269,7 @@ contains
         shf(:,:,2) = chs*cp*denvvs(:,:,ks)*(tsea - t1(:,:,2))
 
         ! 4.4 Evaporation
-        qsat0(:,:,2) = get_qsat(tsea, psa, 1.0)
+        qsat0(:,:,2) = get_qsat(tsea, psa, 1.0_p)
         evap(:,:,2) = chs*denvvs(:,:,ks)*(qsat0(:,:,2) - q1(:,:,2))
 
         ! 4.5 Emission of lw radiation from the surface
@@ -307,8 +300,8 @@ contains
     subroutine set_orog_land_sfc_drag(phi0)
         use physical_constants, only: grav
 
-        real, intent(in) :: phi0(ix,il)
-        real :: rhdrag
+        real(p), intent(in) :: phi0(ix,il)
+        real(p) :: rhdrag
 
         rhdrag = 1.0/(grav*hdrag)
 

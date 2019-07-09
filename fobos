@@ -1,20 +1,27 @@
 [modes]
-modes = default profile
+modes = default profile intel
 
 [common-variables]
-$FFLAGS   = -c -fdefault-real-8 -fconvert=swap -Wall
+$FFLAGSGNU   = -c -fconvert=swap -Wall
+$FFLAGSINTEL = -c -convert big_endian -warn all
 
 [default]
 template  = template-speedy
-cflags    = $FFLAGS -Ofast
+compiler  = gnu
+cflags    = $FFLAGSGNU -Ofast
 
 [profile]
 template  = template-speedy
-cflags    = $FFLAGS
+compiler  = gnu
+cflags    = $FFLAGSGNU
+
+[intel]
+template  = template-speedy
+compiler  = ifort
+cflags    = $FFLAGSINTEL -Ofast
 
 [template-speedy]
 colors    = True
-compiler  = gnu
 lflags    = -lnetcdff
 include   = /usr/include
 

@@ -22,8 +22,9 @@ cflags    = $FFLAGSINTEL -Ofast
 
 [template-speedy]
 colors    = True
-lflags    = -lnetcdff
-include   = /usr/include
+lflags    = -L$NETCDF/lib
+ext_libs  = netcdff
+include   = $NETCDF/include
 
 src       = ./source
 target    = ./source/speedy.f90
